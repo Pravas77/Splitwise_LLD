@@ -23,10 +23,6 @@ public class Transaction {
 
     @Override
     public String toString() {
-        return "Transaction{" +
-                "from=" + from +
-                ", to=" + to +
-                ", transactionAmount=" + transactionAmount +
-                '}';
+        return "Transaction{" + "from=" + from + ", to=" + to + ", transactionAmount=" + transactionAmount + '}';
     }
 }

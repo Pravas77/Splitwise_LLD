@@ -11,21 +11,12 @@ public class GroupManager {
         return group.getBalanceSheet(user);
     }
 
-    public Double totalOweAmount(User user, Group group) {
-        return group.totalOweAmount(user);
-    }
-
-    public Double totalGetBackAmount(User user, Group group) {
-        return group.totalGetBackAmount(user);
-    }
-
-    public Expense createExpense(User paidByUser, Double amount, List<Split> splitList, Group group) {
-        return group.createExpense(paidByUser, amount, splitList);
+    public void createExpense(User user, double amount, List<Split> splitList, Group group) {
+        group.createExpense(user, amount, splitList);
     }
 
     public List<Transaction> simplifyDebt(Group group) {
         return group.simplifyDebt();
     }
-
 
 }

@@ -1,123 +1,82 @@
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
 
 public class Group {
-    private int groupId;
-    private List<User> userList;
-    private List<Expense> expenseList;
+    private int id;
     private Map<User, BalanceSheet> balanceSheetMap;
-    private Object moniter;
 
-    public Group(int groupId, List<User> userList) {
-        this.groupId = groupId;
-        this.userList = userList;
-        this.expenseList = new ArrayList<>();
-        this.balanceSheetMap = new ConcurrentHashMap<>();
-        this.moniter = new Object();
-
+    public Group(int id, Map<User, BalanceSheet> balanceSheetMap) {
+        this.id = id;
+        this.balanceSheetMap = balanceSheetMap;
     }
 
 
     public BalanceSheet getBalanceSheet(User user) {
-        return balanceSheetMap.getOrDefault(user, new BalanceSheet());
+        return balanceSheetMap.get(user);
     }
 
 
-    public Double totalOweAmount(User user) {
-        Double totalOweAmount = 0.0;
-        for (Map.Entry<User, Balance> balanceSheet : balanceSheetMap.get(user).getUserVsBalance().entrySet()) {
-            totalOweAmount += balanceSheet.getValue().getOweAmount();
-        }
-        return totalOweAmount;
-    }
+    public void createExpense(User user, double amount, List<Split> splitList) {
 
-
-    public Double totalGetBackAmount(User user) {
-        Double totalGetBackAmount = 0.0;
-        for (Map.Entry<User, Balance> balanceSheet : balanceSheetMap.get(user).getUserVsBalance().entrySet()) {
-            totalGetBackAmount += balanceSheet.getValue().getGetBackAmount();
-        }
-        return totalGetBackAmount;
-    }
-
-
-    public Expense createExpense(User paidByUser, Double amount, List<Split> splitList) {
-
-        BalanceSheet paidByUserBalanceSheet = balanceSheetMap.computeIfAbsent(paidByUser, k -> new BalanceSheet());
-
-        Double totalPayment = paidByUserBalanceSheet.getTotalPayment();
-        paidByUserBalanceSheet.setTotalPayment(totalPayment + amount);
+        BalanceSheet userBalanceSheet = balanceSheetMap.get(user);
+        Double totalPayment = userBalanceSheet.getTotalPayment();
+        userBalanceSheet.setTotalPayment(totalPayment + amount);
 
         for (Split split : splitList) {
+
             User oweUser = split.getOweUser();
             Double oweAmount = split.getOweAmount();
+            BalanceSheet oweUseBalanceSheet = balanceSheetMap.get(oweUser);
 
-            if (oweUser.equals(paidByUser)) {
-                Double totalExpense = paidByUserBalanceSheet.getTotalExpense();
-                paidByUserBalanceSheet.setTotalExpense(totalExpense + oweAmount);
+            if (oweUser.equals(user)) {
+                Double totalExpense = userBalanceSheet.getTotalExpense();
+                userBalanceSheet.setTotalExpense(totalExpense + oweAmount);
                 continue;
             }
 
+            double currentGetBackAmount = userBalanceSheet.getGetBackAmountAcrossUser(oweUser);
+            userBalanceSheet.setGetBackAmountAcrossUser(oweUser, currentGetBackAmount + oweAmount);
 
-            // (update getBackAmount field of oweUser) in paidByUser BalanceSheet
-            Double getBackAmountOfMapping = paidByUserBalanceSheet.getUserVsBalance().computeIfAbsent(oweUser, k -> new Balance()).getGetBackAmount();
-            paidByUserBalanceSheet.getUserVsBalance().get(oweUser).setGetBackAmount(getBackAmountOfMapping + oweAmount);
-
-
-            // (update oweAmount field of paidByUser) in oweUser BalanceSheet
-            BalanceSheet oweUserBalanceSheet = balanceSheetMap.computeIfAbsent(oweUser, k -> new BalanceSheet());
-            Double oweAmountOfMapping = oweUserBalanceSheet.getUserVsBalance().computeIfAbsent(paidByUser, k -> new Balance()).getOweAmount();
-            oweUserBalanceSheet.getUserVsBalance().get(paidByUser).setOweAmount(oweAmountOfMapping + oweAmount);
+            double currentOweAmount = oweUseBalanceSheet.getOweAmountAcrossUser(user);
+            oweUseBalanceSheet.setOweAmountAcrossUser(user, currentOweAmount + oweAmount);
         }
-
-        Expense expense = new Expense(paidByUser, amount, splitList);
-        synchronized (moniter) {
-            expenseList.add(expense);
-        }
-        return expense;
-
-
     }
 
 
     public List<Transaction> simplifyDebt() {
 
+        PriorityQueue<Settlement> positiveQueue = new PriorityQueue<>((a, b) -> Double.compare(b.getAmount(), a.getAmount()));
+        PriorityQueue<Settlement> negativeQueue = new PriorityQueue<>((a, b) -> Double.compare(a.getAmount(), b.getAmount()));
 
-        PriorityQueue<Pair<Double, User>> positiveQueue = new PriorityQueue<>((a, b) -> Double.compare(b.getFirst(), a.getFirst()));
-        PriorityQueue<Pair<Double, User>> negativeQueue = new PriorityQueue<>((a, b) -> Double.compare(a.getFirst(), b.getFirst()));
+        for (Map.Entry<User, BalanceSheet> val : balanceSheetMap.entrySet()) {
+            User user = val.getKey();
+            BalanceSheet balanceSheet = val.getValue();
 
-        for (User user : balanceSheetMap.keySet()) {
-            Double totalDeficit = totalGetBackAmount(user) - totalOweAmount(user);
-            if (totalDeficit < 0.0) negativeQueue.offer(new Pair<>(totalDeficit, user));
-            else if (totalDeficit > 0.0) positiveQueue.offer(new Pair<>(totalDeficit, user));
+            double amount = balanceSheet.getTotalGetBackAmount() - balanceSheet.getTotalOweAmount();
+            if (amount < 0.0) negativeQueue.offer(new Settlement(amount, user));
+            else if (amount > 0.0) positiveQueue.offer(new Settlement(amount, user));
         }
-
 
         List<Transaction> transactions = new ArrayList<>();
         while (!positiveQueue.isEmpty() && !negativeQueue.isEmpty()) {
-            Pair<Double, User> toEntry = positiveQueue.poll();
-            Double toAmount = toEntry.getFirst();
-            User toUser = toEntry.getSecond();
 
-            Pair<Double, User> fromEntry = negativeQueue.poll();
-            Double fromAmount = fromEntry.getFirst();
-            User fromUser = fromEntry.getSecond();
+            Settlement toSettlement = positiveQueue.poll();
+            double toAmount = toSettlement.getAmount();
+            User toUser = toSettlement.getUser();
 
-            if (toAmount > Math.abs(fromAmount)) {
-                positiveQueue.offer(new Pair<>(toAmount + fromAmount, toUser));
-                transactions.add(new Transaction(fromUser, toUser, Math.abs(fromAmount)));
+            Settlement fromSettlement = negativeQueue.poll();
+            double fromAmount = fromSettlement.getAmount();
+            User fromUser = fromSettlement.getUser();
 
-            } else if (toAmount < Math.abs(fromAmount)) {
-                negativeQueue.offer(new Pair<>(toAmount + fromAmount, fromUser));
+            if (Math.abs(fromAmount) > toAmount) {
+                negativeQueue.offer(new Settlement(fromAmount + toAmount, fromUser));
                 transactions.add(new Transaction(fromUser, toUser, toAmount));
-
+            } else if (Math.abs(fromAmount) < toAmount) {
+                positiveQueue.offer(new Settlement(fromAmount + toAmount, toUser));
+                transactions.add(new Transaction(fromUser, toUser, Math.abs(fromAmount)));
             } else transactions.add(new Transaction(fromUser, toUser, toAmount));
-
         }
-
         return transactions;
     }
-
 
 }
 

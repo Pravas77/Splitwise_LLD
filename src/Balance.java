@@ -1,33 +1,30 @@
 public class Balance {
-    private Double oweAmount;
-    private Double getBackAmount;
+    private double oweAmount;
+    private double getBackAmount;
 
     public Balance() {
         this.oweAmount = 0.0;
         this.getBackAmount = 0.0;
     }
 
-    public Double getOweAmount() {
+    public double getOweAmount() {
         return oweAmount;
     }
 
-    public void setOweAmount(Double oweAmount) {
+    public void setOweAmount(double oweAmount) {
         this.oweAmount = oweAmount;
     }
 
-    public Double getGetBackAmount() {
+    public double getGetBackAmount() {
         return getBackAmount;
     }
 
-    public void setGetBackAmount(Double getBackAmount) {
+    public void setGetBackAmount(double getBackAmount) {
         this.getBackAmount = getBackAmount;
     }
 
     @Override
     public String toString() {
-        return "Balance{" +
-                "oweAmount=" + oweAmount +
-                ", getBackAmount=" + getBackAmount +
-                '}';
+        return "Balance{" + "oweAmount=" + oweAmount + ", getBackAmount=" + getBackAmount + '}';
     }
 }

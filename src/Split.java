@@ -2,9 +2,9 @@ import java.util.Map;
 
 public class Split {
     private User oweUser;
-    private Double oweAmount;
+    private double oweAmount;
 
-    public Split(User oweUser, Double oweAmount) {
+    public Split(User oweUser, double oweAmount) {
         this.oweUser = oweUser;
         this.oweAmount = oweAmount;
     }
@@ -17,11 +17,11 @@ public class Split {
         this.oweUser = oweUser;
     }
 
-    public Double getOweAmount() {
+    public double getOweAmount() {
         return oweAmount;
     }
 
-    public void setOweAmount(Double oweAmount) {
+    public void setOweAmount(double oweAmount) {
         this.oweAmount = oweAmount;
     }
 }
